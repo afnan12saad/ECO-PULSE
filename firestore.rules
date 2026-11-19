@@ -1,0 +1,348 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isVerified() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDateId(dateStr) {
+      return dateStr is string && dateStr.size() == 10 && dateStr.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation helpers
+    function isValidUserProfile(data, uid) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'email', 'photoURL',
+          'totalXP', 'currentStreak', 'longestStreak', 'totalCheckIns',
+          'treeStage', 'leagueOptIn', 'units', 'notificationsEnabled',
+          'dailyReminderTime', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL',
+          'totalXP', 'currentStreak', 'longestStreak', 'totalCheckIns',
+          'treeStage', 'leagueOptIn', 'units', 'notificationsEnabled',
+          'dailyReminderTime', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.photoURL is string && data.photoURL.size() <= 65000 && (data.photoURL == '' || data.photoURL.matches('^https://.*') || data.photoURL.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))
+        && data.totalXP is number && data.totalXP >= 0 && data.totalXP <= 10000000
+        && data.currentStreak is number && data.currentStreak >= 0 && data.currentStreak <= 36500
+        && data.longestStreak is number && data.longestStreak >= 0 && data.longestStreak <= 36500
+        && data.totalCheckIns is number && data.totalCheckIns >= 0 && data.totalCheckIns <= 36500
+        && data.treeStage is number && data.treeStage >= 1 && data.treeStage <= 6
+        && data.leagueOptIn is bool
+        && data.units in ['kg', 'lbs']
+        && data.notificationsEnabled is bool
+        && data.dailyReminderTime is string && data.dailyReminderTime.size() <= 10
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCategoryMap(cat) {
+      return cat is map
+        && cat.keys().hasAll(['transport', 'food', 'electricity', 'purchases', 'waste'])
+        && cat.keys().hasOnly(['transport', 'food', 'electricity', 'purchases', 'waste'])
+        && cat.transport is number && cat.transport >= 0 && cat.transport <= 10000
+        && cat.food is number && cat.food >= 0 && cat.food <= 10000
+        && cat.electricity is number && cat.electricity >= 0 && cat.electricity <= 10000
+        && cat.purchases is number && cat.purchases >= 0 && cat.purchases <= 10000
+        && cat.waste is number && cat.waste >= 0 && cat.waste <= 10000;
+    }
+
+    function isValidDailyLog(data, uid, dateId) {
+      return data.keys().hasAll([
+          'uid', 'date', 'transport', 'food', 'electricity',
+          'purchases', 'waste', 'categoryBreakdown', 'totalEmissions',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'date', 'transport', 'food', 'electricity',
+          'purchases', 'waste', 'categoryBreakdown', 'totalEmissions',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.date == dateId
+        && isValidDateId(data.date)
+        && data.transport is map && data.transport.size() <= 12
+        && data.food is map && data.food.size() <= 12
+        && data.electricity is map && data.electricity.size() <= 12
+        && data.purchases is map && data.purchases.size() <= 12
+        && data.waste is map && data.waste.size() <= 12
+        && isValidCategoryMap(data.categoryBreakdown)
+        && data.totalEmissions is number && data.totalEmissions >= 0 && data.totalEmissions <= 50000
+        && data.notes is string && data.notes.size() <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMission(data, uid, missionId) {
+      return data.keys().hasAll([
+          'uid', 'missionId', 'title', 'description', 'category',
+          'difficulty', 'durationDays', 'rewardXP', 'estimatedImpactKg',
+          'progress', 'status', 'rewardClaimed', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'missionId', 'title', 'description', 'category',
+          'difficulty', 'durationDays', 'rewardXP', 'estimatedImpactKg',
+          'progress', 'status', 'rewardClaimed', 'startedAt', 'completedAt', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.missionId == missionId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 300
+        && data.category in ['transport', 'food', 'electricity', 'purchases', 'waste', 'general']
+        && data.difficulty in ['easy', 'medium', 'hard']
+        && data.durationDays is number && data.durationDays >= 1 && data.durationDays <= 90
+        && data.rewardXP is number && data.rewardXP >= 0 && data.rewardXP <= 5000
+        && data.estimatedImpactKg is number && data.estimatedImpactKg >= 0 && data.estimatedImpactKg <= 1000
+        && data.progress is number && data.progress >= 0 && data.progress <= 100
+        && data.status in ['available', 'in_progress', 'completed']
+        && data.rewardClaimed is bool
+        && (!('startedAt' in data) || data.startedAt == null || data.startedAt is timestamp)
+        && (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGoal(data, uid, goalId) {
+      return data.keys().hasAll([
+          'uid', 'goalId', 'title', 'scenarioSummary', 'originalEmissions',
+          'alternativeEmissions', 'estimatedSavings', 'reductionPercent',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'goalId', 'title', 'scenarioSummary', 'originalEmissions',
+          'alternativeEmissions', 'estimatedSavings', 'reductionPercent',
+          'status', 'createdAt', 'completedAt', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.goalId == goalId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.scenarioSummary is string && data.scenarioSummary.size() >= 1 && data.scenarioSummary.size() <= 300
+        && data.originalEmissions is number && data.originalEmissions >= 0 && data.originalEmissions <= 50000
+        && data.alternativeEmissions is number && data.alternativeEmissions >= 0 && data.alternativeEmissions <= 50000
+        && data.estimatedSavings is number && data.estimatedSavings >= -50000 && data.estimatedSavings <= 50000
+        && data.reductionPercent is number && data.reductionPercent >= -100 && data.reductionPercent <= 100
+        && data.status in ['active', 'completed']
+        && (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidNotification(data, uid) {
+      return data.keys().hasAll(['uid', 'title', 'message', 'type', 'read', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'title', 'message', 'type', 'read', 'createdAt'])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 300
+        && data.type in ['reminder', 'mission', 'streak', 'goal', 'summary']
+        && data.read is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeagueMember(data, uid) {
+      return data.keys().hasAll([
+          'uid', 'displayAlias', 'ecoScore', 'improvementPct',
+          'totalXP', 'missionsCompleted', 'currentStreak', 'cohort',
+          'optedIn', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayAlias', 'ecoScore', 'improvementPct',
+          'totalXP', 'missionsCompleted', 'currentStreak', 'cohort',
+          'optedIn', 'updatedAt'
+        ])
+        && data.uid == uid
+        && data.uid == request.auth.uid
+        && data.displayAlias is string && data.displayAlias.size() >= 1 && data.displayAlias.size() <= 60
+        && data.ecoScore is number && data.ecoScore >= 0 && data.ecoScore <= 10000
+        && data.improvementPct is number && data.improvementPct >= -100 && data.improvementPct <= 100
+        && data.totalXP is number && data.totalXP >= 0 && data.totalXP <= 10000000
+        && data.missionsCompleted is number && data.missionsCompleted >= 0 && data.missionsCompleted <= 10000
+        && data.currentStreak is number && data.currentStreak >= 0 && data.currentStreak <= 36500
+        && data.cohort in ['global', 'campus', 'friends']
+        && data.optedIn is bool
+        && data.updatedAt is timestamp;
+    }
+
+    // Connection health check (non-sensitive)
+    match /test/connection {
+      allow get: if true;
+      allow write: if false;
+    }
+
+    // Private user root profile
+    match /users/{uid} {
+      allow get: if isValidId(uid) && isOwner(uid);
+      allow list: if false;
+      allow create: if isValidId(uid)
+        && isOwner(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(uid)
+        && isOwner(uid)
+        && isValidUserProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'totalXP', 'currentStreak',
+          'longestStreak', 'totalCheckIns', 'treeStage', 'leagueOptIn',
+          'units', 'notificationsEnabled', 'dailyReminderTime', 'updatedAt'
+        ]);
+      allow delete: if isValidId(uid) && isOwner(uid);
+
+      // Daily carbon check-in logs
+      match /dailyLogs/{date} {
+        allow get: if isValidId(uid) && isValidDateId(date) && isOwner(uid);
+        allow list: if isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isValidId(uid)
+          && isValidDateId(date)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidDailyLog(incoming(), uid, date)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(uid)
+          && isValidDateId(date)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidDailyLog(incoming(), uid, date)
+          && incoming().uid == existing().uid
+          && incoming().date == existing().date
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'transport', 'food', 'electricity', 'purchases', 'waste',
+            'categoryBreakdown', 'totalEmissions', 'notes', 'updatedAt'
+          ]);
+        allow delete: if isValidId(uid) && isValidDateId(date) && isOwner(uid);
+      }
+
+      // Eco missions
+      match /missions/{missionId} {
+        allow get: if isValidId(uid) && isValidId(missionId) && isOwner(uid);
+        allow list: if isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isValidId(uid)
+          && isValidId(missionId)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidMission(incoming(), uid, missionId)
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(uid)
+          && isValidId(missionId)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidMission(incoming(), uid, missionId)
+          && incoming().uid == existing().uid
+          && incoming().missionId == existing().missionId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'progress', 'status', 'rewardClaimed', 'startedAt', 'completedAt', 'updatedAt'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(missionId) && isOwner(uid);
+      }
+
+      // Saved simulator goals
+      match /goals/{goalId} {
+        allow get: if isValidId(uid) && isValidId(goalId) && isOwner(uid);
+        allow list: if isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isValidId(uid)
+          && isValidId(goalId)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidGoal(incoming(), uid, goalId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(uid)
+          && isValidId(goalId)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && existing().status != 'completed'
+          && isValidGoal(incoming(), uid, goalId)
+          && incoming().uid == existing().uid
+          && incoming().goalId == existing().goalId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'completedAt', 'updatedAt'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(goalId) && isOwner(uid);
+      }
+
+      // In-app notifications
+      match /notifications/{notifId} {
+        allow get: if isValidId(uid) && isValidId(notifId) && isOwner(uid);
+        allow list: if isOwner(uid) && resource.data.uid == request.auth.uid;
+        allow create: if isValidId(uid)
+          && isValidId(notifId)
+          && isOwner(uid)
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && isValidNotification(incoming(), uid)
+          && incoming().createdAt == request.time;
+        allow update: if isValidId(uid)
+          && isValidId(notifId)
+          && isOwner(uid)
+          && isValidNotification(incoming(), uid)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+        allow delete: if isValidId(uid) && isValidId(notifId) && isOwner(uid);
+      }
+    }
+
+    // Public opt-in Eco League standings (strictly zero PII)
+    match /league/{uid} {
+      allow get: if isValidId(uid) && isVerified() && (uid == request.auth.uid || (resource != null && resource.data.optedIn == true));
+      allow list: if isVerified() && resource.data.optedIn == true;
+      allow create: if isValidId(uid)
+        && isOwner(uid)
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && isValidLeagueMember(incoming(), uid)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(uid)
+        && isOwner(uid)
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && isValidLeagueMember(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayAlias', 'ecoScore', 'improvementPct', 'totalXP',
+          'missionsCompleted', 'currentStreak', 'cohort', 'optedIn', 'updatedAt'
+        ]);
+      allow delete: if isValidId(uid) && isOwner(uid);
+    }
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private authenticated user profile, sustainability progression stats, and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "email": { "type": "string", "format": "email", "minLength": 3, "maxLength": 160 },
+        "photoURL": { "type": "string", "maxLength": 65000 },
+        "totalXP": { "type": "number" },
+        "currentStreak": { "type": "number" },
+        "longestStreak": { "type": "number" },
+        "totalCheckIns": { "type": "number" },
+        "treeStage": { "type": "number" },
+        "leagueOptIn": { "type": "boolean" },
+        "units": { "type": "string", "enum": ["kg", "lbs"] },
+        "notificationsEnabled": { "type": "boolean" },
+        "dailyReminderTime": { "type": "string", "maxLength": 10 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "photoURL",
+        "totalXP",
+        "currentStreak",
+        "longestStreak",
+        "totalCheckIns",
+        "treeStage",
+        "leagueOptIn",
+        "units",
+        "notificationsEnabled",
+        "dailyReminderTime",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DailyLog": {
+      "title": "DailyLog",
+      "description": "Daily carbon footprint check-in entry keyed by YYYY-MM-DD.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "date": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "transport": { "type": "object" },
+        "food": { "type": "object" },
+        "electricity": { "type": "object" },
+        "purchases": { "type": "object" },
+        "waste": { "type": "object" },
+        "categoryBreakdown": { "type": "object" },
+        "totalEmissions": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "date",
+        "transport",
+        "food",
+        "electricity",
+        "purchases",
+        "waste",
+        "categoryBreakdown",
+        "totalEmissions",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EcoMission": {
+      "title": "EcoMission",
+      "description": "User sustainability mission state and XP reward claim status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "missionId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "category": { "type": "string", "enum": ["transport", "food", "electricity", "purchases", "waste", "general"] },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+        "durationDays": { "type": "number" },
+        "rewardXP": { "type": "number" },
+        "estimatedImpactKg": { "type": "number" },
+        "progress": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "in_progress", "completed"] },
+        "rewardClaimed": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "missionId",
+        "title",
+        "description",
+        "category",
+        "difficulty",
+        "durationDays",
+        "rewardXP",
+        "estimatedImpactKg",
+        "progress",
+        "status",
+        "rewardClaimed",
+        "updatedAt"
+      ]
+    },
+    "SimulatorGoal": {
+      "title": "SimulatorGoal",
+      "description": "Personal carbon reduction goal saved from the What-If Simulator.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "goalId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "scenarioSummary": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "originalEmissions": { "type": "number" },
+        "alternativeEmissions": { "type": "number" },
+        "estimatedSavings": { "type": "number" },
+        "reductionPercent": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "goalId",
+        "title",
+        "scenarioSummary",
+        "originalEmissions",
+        "alternativeEmissions",
+        "estimatedSavings",
+        "reductionPercent",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app notification entry for reminders, streaks, missions, and goals.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "type": { "type": "string", "enum": ["reminder", "mission", "streak", "goal", "summary"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "title", "message", "type", "read", "createdAt"]
+    },
+    "LeagueMember": {
+      "title": "LeagueMember",
+      "description": "PII-isolated opt-in public Eco League standing ranked by improvement and consistency.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayAlias": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "ecoScore": { "type": "number" },
+        "improvementPct": { "type": "number" },
+        "totalXP": { "type": "number" },
+        "missionsCompleted": { "type": "number" },
+        "currentStreak": { "type": "number" },
+        "cohort": { "type": "string", "enum": ["global", "campus", "friends"] },
+        "optedIn": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "displayAlias",
+        "ecoScore",
+        "improvementPct",
+        "totalXP",
+        "missionsCompleted",
+        "currentStreak",
+        "cohort",
+        "optedIn",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and progression counters."
+    },
+    "/users/{uid}/dailyLogs/{date}": {
+      "schema": { "$ref": "#/entities/DailyLog" },
+      "description": "Daily carbon check-in logs keyed by YYYY-MM-DD."
+    },
+    "/users/{uid}/missions/{missionId}": {
+      "schema": { "$ref": "#/entities/EcoMission" },
+      "description": "User mission tracking documents."
+    },
+    "/users/{uid}/goals/{goalId}": {
+      "schema": { "$ref": "#/entities/SimulatorGoal" },
+      "description": "Saved simulator goals."
+    },
+    "/users/{uid}/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "In-app notifications for the user."
+    },
+    "/league/{uid}": {
+      "schema": { "$ref": "#/entities/LeagueMember" },
+      "description": "Public opt-in Eco League entries without PII."
+    }
+  }
+}
