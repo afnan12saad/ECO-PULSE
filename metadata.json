@@ -1,0 +1,6 @@
+{
+  "name": "ECO-PULSE",
+  "description": "Measure your day. Rethink your choices. Change your tomorrow. A personal environmental intelligence instrument for tracking, analyzing, and reducing daily carbon emissions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
